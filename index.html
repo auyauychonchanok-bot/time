@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Voxel Math Game (ป.2) - Creator Logo Edition</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Mali', cursive, sans-serif;
+            margin: 0;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        .nametag {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #3b82f6;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #1e3a8a;
+            pointer-events: none;
+            white-space: nowrap;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        #minimap-canvas {
+            border: 3px solid #f59e0b;
+            background-color: rgba(15, 23, 42, 0.85);
+            border-radius: 50%;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-800">
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- 2D UI Overlay: Player Name Tag -->
+    <div id="nametag" class="nametag">ผู้กล้าคณิตศาสตร์</div>
+
+    <!-- HUD Overlay Top -->
+    <div class="absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none z-10">
+        
+        <!-- Left Section: Creator Logo & Score Board -->
+        <div class="flex items-center gap-3">
+            <!-- CREATOR LOGO (80x80 px) - ชื่อไฟล์ a.png -->
+            <div class="pointer-events-auto shrink-0">
+                <img id="creator-logo" 
+                     src="a.png" 
+                     alt="Creator Logo" 
+                     class="w-[80px] h-[80px] rounded-2xl border-4 border-amber-400 bg-white/90 backdrop-blur shadow-lg object-cover">
+            </div>
+
+            <!-- Score & Target Board -->
+            <div class="flex flex-col gap-1.5">
+                <div class="bg-white/90 backdrop-blur border-2 sm:border-4 border-amber-400 rounded-xl sm:rounded-2xl p-1.5 sm:p-2 px-3 shadow-lg pointer-events-auto flex items-center gap-2">
+                    <span class="text-lg sm:text-xl">⭐</span>
+                    <div>
+                        <div class="text-[9px] sm:text-[10px] text-amber-800 font-bold">คะแนนรวม</div>
+                        <div id="score-text" class="text-xs sm:text-base font-bold text-amber-600">0 / 10</div>
+                    </div>
+                </div>
+
+                <div class="bg-white/90 backdrop-blur border-2 sm:border-4 border-emerald-400 rounded-xl sm:rounded-2xl p-1.5 sm:p-2 px-3 shadow-lg pointer-events-auto flex items-center gap-2">
+                    <span class="text-lg sm:text-xl">🎯</span>
+                    <div>
+                        <div class="text-[9px] sm:text-[10px] text-emerald-800 font-bold">ตอบถูก (เป้าหมาย 7)</div>
+                        <div id="correct-count-text" class="text-xs sm:text-base font-bold text-emerald-600">0 / 10</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MINIMAP (Top Center) -->
+        <div class="pointer-events-auto flex flex-col items-center">
+            <canvas id="minimap-canvas" width="100" height="100"></canvas>
+            <div class="bg-amber-500/90 text-white text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 shadow border border-white">
+                🟡 กล่องโจทย์
+            </div>
+        </div>
+
+        <!-- Controls (Right): Sound Button & Home Button -->
+        <div class="flex gap-2 pointer-events-auto">
+            <!-- Audio Toggle Button -->
+            <button id="btn-sound" class="bg-amber-500 hover:bg-amber-600 text-white font-bold p-2 sm:p-2.5 px-3 rounded-2xl shadow-lg border-b-4 border-amber-700 active:translate-y-1 active:border-b-0 flex items-center gap-1">
+                <span id="sound-icon" class="text-lg sm:text-xl">🔊</span>
+            </button>
+
+            <!-- Home Button -->
+            <button id="btn-home" class="bg-rose-500 hover:bg-rose-600 text-white font-bold p-2 sm:p-2.5 px-4 rounded-2xl shadow-lg border-b-4 border-rose-700 active:translate-y-1 active:border-b-0 flex items-center gap-2">
+                <svg class="w-5 h-5 fill-current" viewBox="0 0 20 20">
+                    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l1.293 1.293a1 1 0 001.414-1.414l-7-7z"/>
+                </svg>
+                <span class="text-sm hidden sm:inline">หน้าหลัก</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ACTION BUTTONS (Bottom Center) -->
+    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-20 pointer-events-auto">
+        <button id="btn-action-sword" class="hidden bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold p-4 rounded-full shadow-2xl border-4 border-white active:scale-95 transition transform flex items-center justify-center text-3xl w-16 h-16">⚔️</button>
+        <button id="btn-action-gun" class="hidden bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold p-4 rounded-full shadow-2xl border-4 border-white active:scale-95 transition transform flex items-center justify-center text-3xl w-16 h-16">🔫</button>
+        <button id="btn-action-fly" class="hidden bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white font-bold p-4 rounded-full shadow-2xl border-4 border-white active:scale-95 transition transform flex items-center justify-center text-3xl w-16 h-16">🪶</button>
+    </div>
+
+    <!-- Touch Joystick Area for Mobile -->
+    <div id="touch-area" class="absolute inset-0 pointer-events-auto md:hidden z-0"></div>
+
+    <!-- MODAL: Gift Reward Notification -->
+    <div id="modal-gift" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-gradient-to-b from-amber-100 to-amber-200 border-4 border-amber-400 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl animate-bounce-once">
+            <div class="text-6xl mb-2">🎁</div>
+            <h3 class="text-2xl font-bold text-amber-900 mb-1">เปิดกล่องของขวัญ!</h3>
+            <p class="text-amber-800 text-sm mb-4">คุณได้รับพลังพร็อบพิเศษ</p>
+            
+            <div class="bg-white rounded-2xl p-4 border-2 border-amber-300 shadow-inner mb-6">
+                <div id="gift-item-icon" class="text-5xl mb-2">⚔️</div>
+                <div id="gift-item-name" class="text-xl font-bold text-indigo-600">ดาบ Voxel</div>
+                <div id="gift-item-desc" class="text-xs text-slate-500 mt-1">กดปุ่มรูปดาบเพื่อฟันศัตรูให้สลายไป!</div>
+            </div>
+
+            <button id="btn-close-gift" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl border-b-4 border-emerald-700 shadow-lg active:translate-y-0.5">
+                ตกลง
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL: Question Dialog -->
+    <div id="modal-question" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-amber-50 border-4 border-amber-300 rounded-3xl p-6 max-w-md w-full shadow-2xl transform transition-all text-center">
+            <div class="inline-block bg-amber-400 text-amber-900 px-4 py-1 rounded-full text-sm font-bold mb-3">
+                ❓ คำถามคณิตศาสตร์ (เรื่อง เวลา ป.2)
+            </div>
+            
+            <div id="question-illustration" class="my-3 flex justify-center items-center bg-white border-2 border-amber-200 rounded-2xl p-4 shadow-inner min-h-[120px]">
+            </div>
+
+            <h3 id="question-text" class="text-xl font-bold text-slate-800 mb-6 leading-relaxed">
+                คำถาม...
+            </h3>
+
+            <div id="options-container" class="grid grid-cols-1 gap-3"></div>
+        </div>
+    </div>
+
+    <!-- MODAL: Victory -->
+    <div id="modal-victory" class="hidden fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
+        <div class="bg-white border-4 border-emerald-400 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
+            <div class="text-6xl mb-2">🏆</div>
+            <h2 class="text-3xl font-bold text-emerald-600 mb-1">คุณผ่านแล้ว!</h2>
+            <p class="text-slate-600 mb-4">ตอบคำถามถูกต้องครบ 7 ข้อขึ้นไปยอดเยี่ยมมาก!</p>
+
+            <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6">
+                <div class="text-sm text-emerald-700 font-bold">คะแนนรวมสะสม</div>
+                <div id="victory-score" class="text-4xl font-bold text-emerald-600">0 / 10</div>
+            </div>
+
+            <button id="btn-victory-restart" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xl font-bold py-4 rounded-2xl border-b-4 border-emerald-700 shadow-lg active:translate-y-1 active:border-b-0">
+                🔄 เล่นใหม่อีกครั้ง
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL: Pause / Home Confirmation -->
+    <div id="modal-home" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white border-4 border-slate-300 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl">
+            <div class="text-5xl mb-2">🏠</div>
+            <h3 class="text-2xl font-bold text-slate-800 mb-2">ต้องการยอมแพ้หรือไม่?</h3>
+            <p class="text-slate-600 mb-6">หากยอมแพ้ ระบบจะบันทึกคะแนนปัจจุบันไว้</p>
+            
+            <div class="flex gap-4">
+                <button id="btn-cancel-home" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 rounded-xl border-b-4 border-slate-400">
+                    เล่นต่อ
+                </button>
+                <button id="btn-confirm-home" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl border-b-4 border-rose-700">
+                    ยอมแพ้
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Game Over -->
+    <div id="modal-gameover" class="hidden fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
+        <div class="bg-white border-4 border-rose-400 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
+            <div class="text-6xl mb-2">💥</div>
+            <h2 class="text-3xl font-bold text-rose-600 mb-1">GAME OVER</h2>
+            <p class="text-slate-500 mb-4">คุณชนกับศัตรู!</p>
+
+            <div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-6">
+                <div class="text-sm text-rose-700 font-bold">คะแนนรวมที่ได้</div>
+                <div id="final-score" class="text-4xl font-bold text-rose-600">0 / 10</div>
+            </div>
+
+            <button id="btn-restart" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xl font-bold py-4 rounded-2xl border-b-4 border-emerald-700 shadow-lg active:translate-y-1 active:border-b-0">
+                🔄 เริ่มเล่นใหม่
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Game Logic -->
+    <script>
+        // --- 1. SOUND SYSTEM ---
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.isMuted = false;
+                this.bgmTimer = null;
+                this.bgmNoteIndex = 0;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            toggleMute() {
+                this.isMuted = !this.isMuted;
+                const icon = document.getElementById('sound-icon');
+                if (this.isMuted) {
+                    icon.innerText = '🔇';
+                    this.stopBGM();
+                } else {
+                    icon.innerText = '🔊';
+                    this.startBGM();
+                }
+                return this.isMuted;
+            }
+
+            playTone(freq, duration, type = 'sine', gainVal = 0.1) {
+                if (this.isMuted) return;
+                this.init();
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) {}
+            }
+
+            sfxClick() { this.playTone(600, 0.05, 'sine', 0.1); }
+            sfxCoin() { 
+                this.playTone(987.77, 0.08, 'sine', 0.15);
+                setTimeout(() => this.playTone(1318.51, 0.15, 'sine', 0.15), 60);
+            }
+            sfxGift() {
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((n, i) => setTimeout(() => this.playTone(n, 0.12, 'triangle', 0.15), i * 70));
+            }
+            sfxQuestionOpen() {
+                this.playTone(440, 0.08, 'sine', 0.1);
+                setTimeout(() => this.playTone(880, 0.12, 'sine', 0.1), 80);
+            }
+            sfxCorrect() {
+                this.playTone(523.25, 0.1, 'triangle', 0.15);
+                setTimeout(() => this.playTone(659.25, 0.1, 'triangle', 0.15), 90);
+                setTimeout(() => this.playTone(783.99, 0.25, 'triangle', 0.15), 180);
+            }
+            sfxWrong() {
+                this.playTone(200, 0.15, 'sawtooth', 0.15);
+                setTimeout(() => this.playTone(150, 0.2, 'sawtooth', 0.15), 100);
+            }
+            sfxSword() { this.playTone(300, 0.1, 'sawtooth', 0.12); }
+            sfxGun() { this.playTone(800, 0.08, 'square', 0.12); }
+            sfxFly() { this.playTone(400, 0.25, 'sine', 0.1); }
+            
+            sfxVictory() {
+                const notes = [523.25, 659.25, 783.99, 1046.50, 880, 1046.50];
+                notes.forEach((n, i) => setTimeout(() => this.playTone(n, 0.2, 'triangle', 0.2), i * 120));
+            }
+            sfxGameOver() {
+                const notes = [400, 350, 300, 220];
+                notes.forEach((n, i) => setTimeout(() => this.playTone(n, 0.25, 'sawtooth', 0.2), i * 150));
+            }
+
+            startBGM() {
+                if (this.bgmTimer || this.isMuted) return;
+                this.init();
+                const bgmMelody = [
+                    523.25, 659.25, 783.99, 659.25, 523.25, 659.25, 783.99, 880,
+                    698.46, 587.33, 698.46, 880, 783.99, 659.25, 523.25, 440
+                ];
+                
+                this.bgmTimer = setInterval(() => {
+                    if (this.isMuted) return;
+                    const note = bgmMelody[this.bgmNoteIndex];
+                    this.playTone(note, 0.18, 'sine', 0.04);
+                    this.bgmNoteIndex = (this.bgmNoteIndex + 1) % bgmMelody.length;
+                }, 220);
+            }
+
+            stopBGM() {
+                if (this.bgmTimer) {
+                    clearInterval(this.bgmTimer);
+                    this.bgmTimer = null;
+                }
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        // --- 2. GAME DATA & MATH QUESTIONS ---
+        const MATH_QUESTIONS = [
+            {
+                text: "เข็มสั้นชี้ที่เลข 8 เข็มยาวชี้ที่เลข 12 เป็นเวลากี่นาฬิกา (กลางวัน)?",
+                illustration: `<svg class="w-24 h-24" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#fef3c7" stroke="#d97706" stroke-width="4"/><line x1="50" y1="50" x2="50" y2="15" stroke="#1e293b" stroke-width="4" stroke-linecap="round"/><line x1="50" y1="50" x2="25" y2="50" stroke="#dc2626" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="50" r="4" fill="#1e293b"/></svg>`,
+                options: ["8 นาฬิกา (08:00)", "12 นาฬิกา (12:00)"],
+                correct: 0
+            },
+            {
+                text: "1 ชั่วโมง มีทั้งหมดกี่นาที?",
+                illustration: `<div class="text-3xl font-bold text-amber-600">1 ชม. = ? นาที</div>`,
+                options: ["60 นาที", "30 นาที"],
+                correct: 0
+            },
+            {
+                text: "เข็มยาวเดินผ่าน 1 ช่องใหญ่ (จากเลข 1 ไปเลข 2) คิดเป็นเวลากี่นาที?",
+                illustration: `<svg class="w-24 h-24" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#e0f2fe" stroke="#0284c7" stroke-width="4"/><path d="M 50 50 L 50 10 A 40 40 0 0 1 85 30 Z" fill="#bae6fd"/><line x1="50" y1="50" x2="50" y2="10" stroke="#0284c7" stroke-width="3"/><line x1="50" y1="50" x2="85" y2="30" stroke="#0284c7" stroke-width="3"/></svg>`,
+                options: ["5 นาที", "10 นาที"],
+                correct: 0
+            },
+            {
+                text: "ตอนกลางวัน เข็มสั้นและเข็มยาวชี้ที่เลข 12 พร้อมกัน เป็นเวลากี่นาฬิกา?",
+                illustration: `<svg class="w-24 h-24" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#fef3c7" stroke="#d97706" stroke-width="4"/><line x1="50" y1="50" x2="50" y2="15" stroke="#dc2626" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="50" r="4" fill="#1e293b"/></svg>`,
+                options: ["12 นาฬิกา (เที่ยงวัน)", "6 นาฬิกา"],
+                correct: 0
+            },
+            {
+                text: "ถ้าเวลา 09:00 น. เดินทางไปถึงสวนสัตว์ใช้เวลา 1 ชั่วโมง จะถึงเวลาใด?",
+                illustration: `<div class="text-2xl font-bold text-emerald-600">09:00 + 1 ชม.</div>`,
+                options: ["10:00 น.", "11:00 น."],
+                correct: 0
+            },
+            {
+                text: "เข็มยาวชี้ที่เลข 6 แสดงว่าเป็นกี่นาที?",
+                illustration: `<svg class="w-24 h-24" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#f3e8ff" stroke="#7e22ce" stroke-width="4"/><line x1="50" y1="50" x2="50" y2="85" stroke="#7e22ce" stroke-width="5" stroke-linecap="round"/><circle cx="50" cy="50" r="4" fill="#1e293b"/></svg>`,
+                options: ["30 นาที", "15 นาที"],
+                correct: 0
+            },
+            {
+                text: "เข็มสั้นบอกเวลาเป็นอะไร?",
+                illustration: `<div class="text-4xl">🕒</div>`,
+                options: ["บอกเวลาเป็น ชั่วโมง", "บอกเวลาเป็น นาที"],
+                correct: 0
+            },
+            {
+                text: "เข็มยาวบอกเวลาเป็นอะไร?",
+                illustration: `<div class="text-4xl">⏱️</div>`,
+                options: ["บอกเวลาเป็น นาที", "บอกเวลาเป็น ชั่วโมง"],
+                correct: 0
+            },
+            {
+                text: "1 วัน มีกี่ชั่วโมง?",
+                illustration: `<div class="text-2xl font-bold text-indigo-600">☀️ 1 วัน 🌙</div>`,
+                options: ["24 ชั่วโมง", "12 ชั่วโมง"],
+                correct: 0
+            },
+            {
+                text: "เริ่มเรียนเวลา 08:30 น. เลิกเรียนเวลา 15:30 น. ช่วงไหนคือกลางวัน?",
+                illustration: `<div class="text-4xl">🌤️</div>`,
+                options: ["เวลากลางวัน", "เวลากลางคืน"],
+                correct: 0
+            }
+        ];
+
+        // --- 3. GAME SETUP & STATE ---
+        let scene, camera, renderer, clock;
+        let player, playerBody, leftLimb, rightLimb;
+        let activeProps = { wings: null, sword: null, gun: null };
+        let equippedPropName = null;
+        
+        let enemies = [];
+        let scoreCubes = [];
+        let questionCubes = [];
+        let giftBoxes = [];
+        let bullets = [];
+
+        let score = 0;
+        let correctAnswers = 0;
+        let isGamePaused = false;
+        let isGameOver = false;
+        let activeQuestionIndex = -1;
+        let activeQuestionObject = null;
+
+        let minimapCtx = null;
+        const MAP_WORLD_SIZE = 120;
+
+        let isFlying = false;
+        let flyTimer = 0;
+
+        const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
+        let touchX = 0, touchY = 0, isTouching = false;
+
+        const COLOR_GROUND = 0x557a2b; 
+        const COLOR_SKY = 0xfdba74;    
+        const COLOR_FOG = 0xfed7aa;    
+        const COLOR_PLAYER = 0x3b82f6; 
+        const COLOR_ENEMY = 0x111827;  
+        const COLOR_SCORE = 0xf97316;  
+        const COLOR_QUESTION = 0xeab308;
+
+        window.addEventListener('DOMContentLoaded', init);
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(COLOR_SKY);
+            scene.fog = new THREE.FogExp2(COLOR_FOG, 0.018);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            const minimapCanvas = document.getElementById('minimap-canvas');
+            minimapCtx = minimapCanvas.getContext('2d');
+
+            clock = new THREE.Clock();
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffedd5, 0.7);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xffedd5, 1.0);
+            sunLight.position.set(40, 60, -20);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            scene.add(sunLight);
+
+            // Ground
+            const groundGeo = new THREE.BoxGeometry(120, 2, 120);
+            const groundMat = new THREE.MeshStandardMaterial({ color: COLOR_GROUND, roughness: 0.9 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.position.y = -1;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            createEnvironment();
+            createPlayer();
+
+            spawnEnemies(4);
+            spawnScoreCubes(8);
+            spawnQuestionCubes(5);
+            spawnGiftBoxes(3);
+
+            setupInputs();
+            setupUIEvents();
+
+            window.addEventListener('resize', onWindowResize);
+            
+            window.addEventListener('pointerdown', () => sound.startBGM(), { once: true });
+
+            animate();
+        }
+
+        // --- 4. CREATION HELPERS ---
+        function createEnvironment() {
+            const bldgColors = [0x451a03, 0x78350f, 0x1e293b, 0x334155, 0x582f0e];
+            for (let i = 0; i < 18; i++) {
+                const w = Math.floor(Math.random() * 4) + 4;
+                const h = Math.floor(Math.random() * 12) + 8;
+                const d = Math.floor(Math.random() * 4) + 4;
+                
+                const bldg = new THREE.Mesh(
+                    new THREE.BoxGeometry(w, h, d),
+                    new THREE.MeshStandardMaterial({ color: bldgColors[Math.floor(Math.random() * bldgColors.length)], roughness: 0.7 })
+                );
+                
+                let x = (Math.random() - 0.5) * 100;
+                let z = (Math.random() - 0.5) * 100;
+                if (Math.abs(x) < 15) x += 25 * Math.sign(x || 1);
+                if (Math.abs(z) < 15) z += 25 * Math.sign(z || 1);
+
+                bldg.position.set(x, h / 2, z);
+                bldg.castShadow = true;
+                bldg.receiveShadow = true;
+                scene.add(bldg);
+            }
+
+            for (let i = 0; i < 25; i++) {
+                const treeGroup = new THREE.Group();
+                const trunk = new THREE.Mesh(new THREE.BoxGeometry(1, 4, 1), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+                trunk.position.y = 2;
+                trunk.castShadow = true;
+                treeGroup.add(trunk);
+
+                const leaves = new THREE.Mesh(new THREE.BoxGeometry(3.5, 3.5, 3.5), new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.8 }));
+                leaves.position.y = 5.5;
+                leaves.castShadow = true;
+                treeGroup.add(leaves);
+
+                let x = (Math.random() - 0.5) * 90;
+                let z = (Math.random() - 0.5) * 90;
+                if (Math.abs(x) < 10) x += 15 * Math.sign(x || 1);
+                if (Math.abs(z) < 10) z += 15 * Math.sign(z || 1);
+
+                treeGroup.position.set(x, 0, z);
+                scene.add(treeGroup);
+            }
+        }
+
+        function createPlayer() {
+            player = new THREE.Group();
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: 0xfde047 }));
+            head.position.y = 2.4;
+            head.castShadow = true;
+            player.add(head);
+
+            playerBody = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.6, 0.8), new THREE.MeshStandardMaterial({ color: COLOR_PLAYER }));
+            playerBody.position.y = 1.0;
+            playerBody.castShadow = true;
+            player.add(playerBody);
+
+            const limbGeo = new THREE.BoxGeometry(0.4, 1.2, 0.4);
+            const limbMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a });
+
+            leftLimb = new THREE.Mesh(limbGeo, limbMat);
+            leftLimb.position.set(-1.0, 1.0, 0);
+            leftLimb.castShadow = true;
+            player.add(leftLimb);
+
+            rightLimb = new THREE.Mesh(limbGeo, limbMat);
+            rightLimb.position.set(1.0, 1.0, 0);
+            rightLimb.castShadow = true;
+            player.add(rightLimb);
+
+            createVoxelProps();
+
+            player.position.set(0, 0, 0);
+            scene.add(player);
+        }
+
+        function createVoxelProps() {
+            // Wings
+            const wingsGroup = new THREE.Group();
+            const wingMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+            
+            const leftWing = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 0.2), wingMat);
+            leftWing.position.set(-1.2, 1.2, -0.5);
+            
+            const rightWing = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 0.2), wingMat);
+            rightWing.position.set(1.2, 1.2, -0.5);
+
+            wingsGroup.add(leftWing);
+            wingsGroup.add(rightWing);
+            wingsGroup.visible = false;
+            player.add(wingsGroup);
+            activeProps.wings = wingsGroup;
+
+            // Sword
+            const swordGroup = new THREE.Group();
+            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.0, 0.3), new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.9 }));
+            blade.position.y = 1.0;
+            const hilt = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.2, 0.3), new THREE.MeshStandardMaterial({ color: 0xdc2626 }));
+            hilt.position.y = 0.1;
+            swordGroup.add(blade);
+            swordGroup.add(hilt);
+
+            swordGroup.position.set(0.2, -0.2, 0.4);
+            swordGroup.rotation.x = Math.PI / 3;
+            swordGroup.visible = false;
+            rightLimb.add(swordGroup);
+            activeProps.sword = swordGroup;
+
+            // Gun
+            const gunGroup = new THREE.Group();
+            const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.35, 1.2), new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6 }));
+            barrel.position.z = 0.5;
+            const handle = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.5, 0.25), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+            handle.position.y = -0.2;
+            gunGroup.add(barrel);
+            gunGroup.add(handle);
+
+            gunGroup.position.set(0.2, -0.3, 0.3);
+            gunGroup.visible = false;
+            rightLimb.add(gunGroup);
+            activeProps.gun = gunGroup;
+        }
+
+        function equipProp(propType) {
+            equippedPropName = propType;
+            
+            activeProps.wings.visible = false;
+            activeProps.sword.visible = false;
+            activeProps.gun.visible = false;
+
+            document.getElementById('btn-action-sword').classList.add('hidden');
+            document.getElementById('btn-action-gun').classList.add('hidden');
+            document.getElementById('btn-action-fly').classList.add('hidden');
+
+            if (propType === 'sword') {
+                activeProps.sword.visible = true;
+                document.getElementById('btn-action-sword').classList.remove('hidden');
+            } else if (propType === 'gun') {
+                activeProps.gun.visible = true;
+                document.getElementById('btn-action-gun').classList.remove('hidden');
+            } else if (propType === 'wings') {
+                activeProps.wings.visible = true;
+                document.getElementById('btn-action-fly').classList.remove('hidden');
+            }
+        }
+
+        // --- ACTIONS & SOUND INTEGRATION ---
+        function executeSwordSlash() {
+            if (equippedPropName !== 'sword' || isGamePaused) return;
+
+            sound.sfxSword();
+            rightLimb.rotation.x = -Math.PI / 2;
+            
+            enemies.forEach(enemy => {
+                const dist = Math.hypot(player.position.x - enemy.position.x, player.position.z - enemy.position.z);
+                if (dist < 3.5) {
+                    createExplosionEffect(enemy.position);
+                    respawnObject(enemy, 25);
+                }
+            });
+        }
+
+        function executeGunShoot() {
+            if (equippedPropName !== 'gun' || isGamePaused) return;
+
+            sound.sfxGun();
+            const bulletGeo = new THREE.SphereGeometry(0.25, 8, 8);
+            const bulletMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+            const bullet = new THREE.Mesh(bulletGeo, bulletMat);
+
+            const dir = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), player.rotation.y);
+            bullet.position.set(
+                player.position.x + dir.x * 1.5,
+                player.position.y + 1.2,
+                player.position.z + dir.z * 1.5
+            );
+
+            bullet.userData = { direction: dir, life: 60 };
+            scene.add(bullet);
+            bullets.push(bullet);
+        }
+
+        function executeFly() {
+            if (equippedPropName !== 'wings' || isGamePaused) return;
+            sound.sfxFly();
+            isFlying = true;
+            flyTimer = 2.5;
+        }
+
+        function createExplosionEffect(pos) {
+            const flashGeo = new THREE.BoxGeometry(2, 2, 2);
+            const flashMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.8 });
+            const flash = new THREE.Mesh(flashGeo, flashMat);
+            flash.position.copy(pos);
+            scene.add(flash);
+
+            setTimeout(() => scene.remove(flash), 150);
+        }
+
+        function spawnGiftBoxes(count) {
+            for (let i = 0; i < count; i++) {
+                const giftGroup = new THREE.Group();
+                const box = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.3 }));
+                box.position.y = 0.6;
+                box.castShadow = true;
+                giftGroup.add(box);
+
+                const ribbonMat = new THREE.MeshStandardMaterial({ color: 0xdc2626 });
+                const r1 = new THREE.Mesh(new THREE.BoxGeometry(1.25, 1.25, 0.3), ribbonMat);
+                r1.position.y = 0.6;
+                const r2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.25, 1.25), ribbonMat);
+                r2.position.y = 0.6;
+                giftGroup.add(r1);
+                giftGroup.add(r2);
+
+                respawnObject(giftGroup, 15);
+                scene.add(giftGroup);
+                giftBoxes.push(giftGroup);
+            }
+        }
+
+        function spawnEnemies(count) {
+            for (let i = 0; i < count; i++) {
+                const enemyGroup = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), new THREE.MeshStandardMaterial({ color: COLOR_ENEMY, roughness: 0.5 }));
+                body.position.y = 0.8;
+                body.castShadow = true;
+                enemyGroup.add(body);
+
+                const eyeMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+                const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.1), eyeMat);
+                eyeL.position.set(-0.4, 1.0, 0.81);
+                const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.1), eyeMat);
+                eyeR.position.set(0.4, 1.0, 0.81);
+                enemyGroup.add(eyeL);
+                enemyGroup.add(eyeR);
+
+                respawnObject(enemyGroup, 20);
+                scene.add(enemyGroup);
+                enemies.push(enemyGroup);
+            }
+        }
+
+        function spawnScoreCubes(count) {
+            const geo = new THREE.BoxGeometry(1, 1, 1);
+            const mat = new THREE.MeshStandardMaterial({ color: COLOR_SCORE, metalness: 0.3, roughness: 0.2 });
+            for (let i = 0; i < count; i++) {
+                const cube = new THREE.Mesh(geo, mat);
+                cube.castShadow = true;
+                respawnObject(cube, 10);
+                scene.add(cube);
+                scoreCubes.push(cube);
+            }
+        }
+
+        function spawnQuestionCubes(count) {
+            const geo = new THREE.BoxGeometry(1.3, 1.3, 1.3);
+            const mat = new THREE.MeshStandardMaterial({ color: COLOR_QUESTION, metalness: 0.2, roughness: 0.3 });
+            for (let i = 0; i < count; i++) {
+                const cube = new THREE.Mesh(geo, mat);
+                cube.castShadow = true;
+                respawnObject(cube, 12);
+                scene.add(cube);
+                questionCubes.push(cube);
+            }
+        }
+
+        function respawnObject(obj, minRadius = 10) {
+            let x, z;
+            do {
+                x = (Math.random() - 0.5) * 80;
+                z = (Math.random() - 0.5) * 80;
+            } while (Math.hypot(x - player.position.x, z - player.position.z) < minRadius);
+            
+            obj.position.set(x, 1.2, z);
+        }
+
+        // --- 5. MINIMAP RENDERER LOGIC ---
+        function drawMinimap() {
+            if (!minimapCtx) return;
+
+            const w = 100;
+            const h = 100;
+            const radius = w / 2;
+
+            minimapCtx.clearRect(0, 0, w, h);
+
+            minimapCtx.save();
+            minimapCtx.beginPath();
+            minimapCtx.arc(radius, radius, radius - 2, 0, Math.PI * 2);
+            minimapCtx.clip();
+
+            minimapCtx.fillStyle = '#1e293b';
+            minimapCtx.fillRect(0, 0, w, h);
+
+            minimapCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            minimapCtx.lineWidth = 1;
+            minimapCtx.beginPath();
+            minimapCtx.moveTo(radius, 0); minimapCtx.lineTo(radius, h);
+            minimapCtx.moveTo(0, radius); minimapCtx.lineTo(w, radius);
+            minimapCtx.stroke();
+
+            const worldToMap = (worldX, worldZ) => {
+                const mapX = radius + (worldX / (MAP_WORLD_SIZE / 2)) * (radius - 8);
+                const mapY = radius + (worldZ / (MAP_WORLD_SIZE / 2)) * (radius - 8);
+                return { x: mapX, y: mapY };
+            };
+
+            scoreCubes.forEach(cube => {
+                const pos = worldToMap(cube.position.x, cube.position.z);
+                minimapCtx.fillStyle = '#f97316';
+                minimapCtx.beginPath();
+                minimapCtx.arc(pos.x, pos.y, 2.5, 0, Math.PI * 2);
+                minimapCtx.fill();
+            });
+
+            giftBoxes.forEach(gift => {
+                const pos = worldToMap(gift.position.x, gift.position.z);
+                minimapCtx.fillStyle = '#e11d48';
+                minimapCtx.beginPath();
+                minimapCtx.arc(pos.x, pos.y, 3.5, 0, Math.PI * 2);
+                minimapCtx.fill();
+            });
+
+            questionCubes.forEach(qCube => {
+                const pos = worldToMap(qCube.position.x, qCube.position.z);
+                minimapCtx.fillStyle = 'rgba(234, 179, 8, 0.35)';
+                minimapCtx.beginPath();
+                minimapCtx.arc(pos.x, pos.y, 6.5, 0, Math.PI * 2);
+                minimapCtx.fill();
+
+                minimapCtx.fillStyle = '#eab308';
+                minimapCtx.beginPath();
+                minimapCtx.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
+                minimapCtx.fill();
+            });
+
+            enemies.forEach(enemy => {
+                const pos = worldToMap(enemy.position.x, enemy.position.z);
+                minimapCtx.fillStyle = '#ef4444';
+                minimapCtx.beginPath();
+                minimapCtx.arc(pos.x, pos.y, 3, 0, Math.PI * 2);
+                minimapCtx.fill();
+            });
+
+            const playerPos = worldToMap(player.position.x, player.position.z);
+            minimapCtx.fillStyle = '#3b82f6';
+            minimapCtx.beginPath();
+            minimapCtx.arc(playerPos.x, playerPos.y, 4.5, 0, Math.PI * 2);
+            minimapCtx.fill();
+            minimapCtx.strokeStyle = '#ffffff';
+            minimapCtx.lineWidth = 1.5;
+            minimapCtx.stroke();
+
+            const dirX = Math.sin(player.rotation.y) * 8;
+            const dirY = Math.cos(player.rotation.y) * 8;
+            minimapCtx.strokeStyle = '#60a5fa';
+            minimapCtx.lineWidth = 2;
+            minimapCtx.beginPath();
+            minimapCtx.moveTo(playerPos.x, playerPos.y);
+            minimapCtx.lineTo(playerPos.x + dirX, playerPos.y + dirY);
+            minimapCtx.stroke();
+
+            minimapCtx.restore();
+        }
+
+        // --- 6. INPUT & EVENT HANDLERS ---
+        function setupInputs() {
+            window.addEventListener('keydown', (e) => {
+                if (keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) {
+                    keys[e.key] = true;
+                    keys[e.key.toLowerCase()] = true;
+                }
+
+                if (e.code === 'Space') {
+                    if (equippedPropName === 'sword') executeSwordSlash();
+                    if (equippedPropName === 'gun') executeGunShoot();
+                }
+                if (e.code === 'KeyE') executeFly();
+                if (e.code === 'KeyF') executeGunShoot();
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) {
+                    keys[e.key] = false;
+                    keys[e.key.toLowerCase()] = false;
+                }
+            });
+
+            const touchArea = document.getElementById('touch-area');
+            let startX = 0, startY = 0;
+
+            touchArea.addEventListener('touchstart', (e) => {
+                sound.init();
+                if (isGamePaused || isGameOver) return;
+                isTouching = true;
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            }, { passive: true });
+
+            touchArea.addEventListener('touchmove', (e) => {
+                if (!isTouching) return;
+                const dx = e.touches[0].clientX - startX;
+                const dy = e.touches[0].clientY - startY;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > 10) {
+                    touchX = dx / Math.max(dist, 50);
+                    touchY = dy / Math.max(dist, 50);
+                }
+            }, { passive: true });
+
+            const touchEndHandler = () => {
+                isTouching = false;
+                touchX = 0;
+                touchY = 0;
+            };
+
+            touchArea.addEventListener('touchend', touchEndHandler);
+            touchArea.addEventListener('touchcancel', touchEndHandler);
+        }
+
+        function setupUIEvents() {
+            document.getElementById('btn-sound').addEventListener('click', () => {
+                sound.sfxClick();
+                sound.toggleMute();
+            });
+
+            document.getElementById('btn-home').addEventListener('click', () => {
+                sound.sfxClick();
+                isGamePaused = true;
+                document.getElementById('modal-home').classList.remove('hidden');
+            });
+
+            document.getElementById('btn-cancel-home').addEventListener('click', () => {
+                sound.sfxClick();
+                document.getElementById('modal-home').classList.add('hidden');
+                isGamePaused = false;
+            });
+
+            document.getElementById('btn-confirm-home').addEventListener('click', () => {
+                sound.sfxClick();
+                alert(`บันทึกคะแนน ${score} คะแนน เรียบร้อยแล้ว! กลับสู่หน้าหลัก`);
+                location.reload();
+            });
+
+            document.getElementById('btn-restart').addEventListener('click', () => {
+                sound.sfxClick();
+                resetGame();
+            });
+            document.getElementById('btn-victory-restart').addEventListener('click', () => {
+                sound.sfxClick();
+                resetGame();
+            });
+
+            document.getElementById('btn-close-gift').addEventListener('click', () => {
+                sound.sfxClick();
+                document.getElementById('modal-gift').classList.add('hidden');
+                isGamePaused = false;
+            });
+
+            document.getElementById('btn-action-sword').addEventListener('click', executeSwordSlash);
+            document.getElementById('btn-action-gun').addEventListener('click', executeGunShoot);
+            document.getElementById('btn-action-fly').addEventListener('click', executeFly);
+        }
+
+        function triggerGiftModal(giftObj) {
+            isGamePaused = true;
+            sound.sfxGift();
+
+            const propsList = [
+                { id: 'sword', name: 'ดาบอัศวิน Voxel', desc: 'แตะปุ่มดาบเพื่อฟันศัตรูในระยะใกล้ให้ตายสลายได้!', icon: '⚔️' },
+                { id: 'gun', name: 'ปืนเลเซอร์ Voxel', desc: 'แตะปุ่มปืนเพื่อยิงกระสุนใส่ศัตรูให้ตายทีละนัด!', icon: '🔫' },
+                { id: 'wings', name: 'ปีกบิน Voxel', desc: 'แตะปุ่มปีกเพื่อลอยตัวบินขึ้นฟ้าหลบศัตรู!', icon: '🪶' }
+            ];
+
+            const selected = propsList[Math.floor(Math.random() * propsList.length)];
+            
+            equipProp(selected.id);
+
+            document.getElementById('gift-item-icon').innerText = selected.icon;
+            document.getElementById('gift-item-name').innerText = selected.name;
+            document.getElementById('gift-item-desc').innerText = selected.desc;
+            document.getElementById('modal-gift').classList.remove('hidden');
+
+            respawnObject(giftObj, 20);
+        }
+
+        function triggerQuestionModal(cubeObj) {
+            isGamePaused = true;
+            sound.sfxQuestionOpen();
+            activeQuestionObject = cubeObj;
+
+            activeQuestionIndex = Math.floor(Math.random() * MATH_QUESTIONS.length);
+            const q = MATH_QUESTIONS[activeQuestionIndex];
+
+            document.getElementById('question-text').innerText = q.text;
+            document.getElementById('question-illustration').innerHTML = q.illustration;
+
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+
+            q.options.forEach((optText, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold py-3 px-4 rounded-xl text-lg shadow-md border-b-4 border-amber-600 active:translate-y-0.5 transition";
+                btn.innerText = optText;
+                btn.onclick = () => answerQuestion(idx);
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('modal-question').classList.remove('hidden');
+        }
+
+        function answerQuestion(selectedIndex) {
+            const q = MATH_QUESTIONS[activeQuestionIndex];
+            if (selectedIndex === q.correct) {
+                sound.sfxCorrect();
+                score += 1;
+                correctAnswers += 1;
+
+                document.getElementById('score-text').innerText = `${score} / 10`;
+                document.getElementById('correct-count-text').innerText = `${correctAnswers} / 10`;
+
+                respawnObject(activeQuestionObject, 15);
+
+                if (correctAnswers >= 7) {
+                    document.getElementById('modal-question').classList.add('hidden');
+                    triggerVictory();
+                    return;
+                }
+            } else {
+                sound.sfxWrong();
+                alert("ยังไม่ถูกต้อง ลองฝึกฝนดูใหม่นะ!");
+            }
+
+            document.getElementById('modal-question').classList.add('hidden');
+            isGamePaused = false;
+        }
+
+        function triggerVictory() {
+            isGameOver = true;
+            isGamePaused = true;
+            sound.sfxVictory();
+            document.getElementById('victory-score').innerText = `${score} / 10`;
+            document.getElementById('modal-victory').classList.remove('hidden');
+        }
+
+        function triggerGameOver() {
+            isGameOver = true;
+            isGamePaused = true;
+            sound.sfxGameOver();
+            document.getElementById('final-score').innerText = `${score} / 10`;
+            document.getElementById('modal-gameover').classList.remove('hidden');
+        }
+
+        function resetGame() {
+            score = 0;
+            correctAnswers = 0;
+            document.getElementById('score-text').innerText = `0 / 10`;
+            document.getElementById('correct-count-text').innerText = `0 / 10`;
+
+            isGameOver = false;
+            isGamePaused = false;
+
+            player.position.set(0, 0, 0);
+            equipProp(null);
+
+            enemies.forEach(e => respawnObject(e, 20));
+            scoreCubes.forEach(c => respawnObject(c, 10));
+            questionCubes.forEach(q => respawnObject(q, 12));
+            giftBoxes.forEach(g => respawnObject(g, 15));
+
+            document.getElementById('modal-gameover').classList.add('hidden');
+            document.getElementById('modal-victory').classList.add('hidden');
+        }
+
+        // --- 7. GAME LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            if (!isGamePaused && !isGameOver) {
+                updatePlayer(delta, time);
+                updateBullets(delta);
+                updateEnemies(delta);
+                updateFloatingItems(time);
+                checkCollisions();
+            }
+
+            updateCameraAndUI();
+            drawMinimap();
+            renderer.render(scene, camera);
+        }
+
+        function updatePlayer(delta, time) {
+            let moveX = 0;
+            let moveZ = 0;
+
+            if (keys.w || keys.ArrowUp) moveZ -= 1;
+            if (keys.s || keys.ArrowDown) moveZ += 1;
+            if (keys.a || keys.ArrowLeft) moveX -= 1;
+            if (keys.d || keys.ArrowRight) moveX += 1;
+
+            if (isTouching) {
+                moveX = touchX;
+                moveZ = touchY;
+            }
+
+            if (isFlying) {
+                flyTimer -= delta;
+                if (player.position.y < 8) player.position.y += delta * 12;
+                if (flyTimer <= 0) isFlying = false;
+            } else {
+                if (player.position.y > 0) player.position.y -= delta * 10;
+                if (player.position.y < 0) player.position.y = 0;
+            }
+
+            const speed = 12;
+            if (moveX !== 0 || moveZ !== 0) {
+                const len = Math.hypot(moveX, moveZ);
+                const normX = moveX / len;
+                const normZ = moveZ / len;
+
+                player.position.x += normX * speed * delta;
+                player.position.z += normZ * speed * delta;
+
+                player.position.x = Math.max(-55, Math.min(55, player.position.x));
+                player.position.z = Math.max(-55, Math.min(55, player.position.z));
+
+                const targetAngle = Math.atan2(normX, normZ);
+                player.rotation.y = THREE.MathUtils.lerp(player.rotation.y, targetAngle, 0.2);
+
+                const swing = Math.sin(time * 12) * 0.6;
+                leftLimb.rotation.x = swing;
+                if (equippedPropName !== 'sword') rightLimb.rotation.x = -swing;
+            } else {
+                leftLimb.rotation.x = 0;
+                if (equippedPropName !== 'sword') rightLimb.rotation.x = 0;
+            }
+
+            if (activeProps.wings.visible) {
+                const flap = Math.sin(time * 12) * 0.3;
+                activeProps.wings.children[0].rotation.y = 0.3 + flap;
+                activeProps.wings.children[1].rotation.y = -0.3 - flap;
+            }
+        }
+
+        function updateBullets(delta) {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+                b.position.x += b.userData.direction.x * delta * 35;
+                b.position.z += b.userData.direction.z * delta * 35;
+                b.userData.life--;
+
+                let hit = false;
+                enemies.forEach(enemy => {
+                    if (Math.hypot(b.position.x - enemy.position.x, b.position.z - enemy.position.z) < 1.5) {
+                        createExplosionEffect(enemy.position);
+                        respawnObject(enemy, 25);
+                        hit = true;
+                    }
+                });
+
+                if (hit || b.userData.life <= 0) {
+                    scene.remove(b);
+                    bullets.splice(i, 1);
+                }
+            }
+        }
+
+        function updateEnemies(delta) {
+            const enemySpeed = 2.5;
+            enemies.forEach(enemy => {
+                const dx = player.position.x - enemy.position.x;
+                const dz = player.position.z - enemy.position.z;
+                const dist = Math.hypot(dx, dz);
+
+                if (dist > 0.1) {
+                    enemy.position.x += (dx / dist) * enemySpeed * delta;
+                    enemy.position.z += (dz / dist) * enemySpeed * delta;
+                    enemy.rotation.y = Math.atan2(dx, dz);
+                }
+            });
+        }
+
+        function updateFloatingItems(time) {
+            scoreCubes.forEach((cube, i) => {
+                cube.rotation.y += 0.03;
+                cube.position.y = 1.2 + Math.sin(time * 3 + i) * 0.2;
+            });
+
+            questionCubes.forEach((cube, i) => {
+                cube.rotation.y -= 0.02;
+                cube.position.y = 1.3 + Math.sin(time * 2.5 + i) * 0.25;
+            });
+
+            giftBoxes.forEach((gift, i) => {
+                gift.rotation.y += 0.02;
+                gift.position.y = 1.2 + Math.sin(time * 2 + i) * 0.2;
+            });
+        }
+
+        function checkCollisions() {
+            const playerPos = player.position;
+
+            if (playerPos.y < 3) {
+                enemies.forEach(enemy => {
+                    if (Math.hypot(playerPos.x - enemy.position.x, playerPos.z - enemy.position.z) < 1.4) {
+                        triggerGameOver();
+                    }
+                });
+            }
+
+            scoreCubes.forEach(cube => {
+                if (Math.hypot(playerPos.x - cube.position.x, playerPos.z - cube.position.z) < 1.4) {
+                    sound.sfxCoin();
+                    score += 1;
+                    document.getElementById('score-text').innerText = `${score} / 10`;
+                    respawnObject(cube, 10);
+                }
+            });
+
+            questionCubes.forEach(cube => {
+                if (Math.hypot(playerPos.x - cube.position.x, playerPos.z - cube.position.z) < 1.4) {
+                    triggerQuestionModal(cube);
+                }
+            });
+
+            giftBoxes.forEach(gift => {
+                if (Math.hypot(playerPos.x - gift.position.x, playerPos.z - gift.position.z) < 1.4) {
+                    triggerGiftModal(gift);
+                }
+            });
+        }
+
+        function updateCameraAndUI() {
+            const targetCamPos = new THREE.Vector3(
+                player.position.x,
+                player.position.y + 14,
+                player.position.z + 16
+            );
+            camera.position.lerp(targetCamPos, 0.08);
+            camera.lookAt(player.position.x, player.position.y + 1, player.position.z);
+
+            const pHead = new THREE.Vector3(player.position.x, player.position.y + 3.2, player.position.z);
+            pHead.project(camera);
+
+            const x = (pHead.x * .5 + .5) * window.innerWidth;
+            const y = (-(pHead.y * .5) + .5) * window.innerHeight;
+
+            const nameTag = document.getElementById('nametag');
+            nameTag.style.left = `${x}px`;
+            nameTag.style.top = `${y}px`;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
